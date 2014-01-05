@@ -1,0 +1,108 @@
+#!/bin/bash
+
+JOINQUEUE="/var/cache/ts2mkvd/joinqueue"
+TRANSCODEQUEUE="/var/cache/ts2mkvd/transcodequeue"
+DESTDIR="/srv/video"
+
+[ -f /etc/default/ts2mkv ] && . /etc/default/ts2mkv
+
+
+logerr() {
+  logger -i -t ts2mkvd -s -p daemon.error "$1"
+}
+
+loginfo() {
+  logger -i -t ts2mkvd -s -p daemon.info "$1"
+}
+
+if [ ! -d "$JOINQUEUE" ]; then
+  logerr "The queue directory \"$JOINQUEUE\" for joining .ts files does not exist"
+  exit 1
+fi
+
+if [ ! -d "$TRANSCODEQUEUE" ]; then
+  logerr "The queue directory \"$TRANSCODEQUEUE\" for transcoding.ts files does not exist"
+  exit 1
+fi
+
+if [ ! -d "$DESTDIR" ]; then
+  logerr "The queue directory \"$DESTDIR\" for the transcoded files does not exist"
+  exit 1
+fi
+
+join_recording() {
+  . $1
+
+  loginfo "joining recording \"$RECORDING\""
+
+  if [ ! -d "$RECORDING" ]; then
+    logerr "can't find recording \"$RECORDING\""
+    rm $1
+    return
+  fi
+
+  if [ -f "$RECORDING/00002.ts" ]; then
+    JOINEDRECORDING="$RECORDING/XXXXX.ts"
+    cat $(find $RECORDING -name "0*.ts" | sort) >"$JOINEDRECORDING"    
+    DELETEJOINEDFILE="$JOINEDRECORDING"
+  else
+    JOINEDRECORDING="$RECORDING/00001.ts"
+  fi
+
+  cat <<EOF >$TRANSCODEQUEUE/recording.$$
+RECORDING="$RECORDING"
+JOINEDRECORDING="$JOINEDRECORDING"
+DELETEJOINEDFILE="$DELETEJOINEDFILE"
+EOF
+
+  rm $1
+
+  loginfo "finished joining recording \"$RECORDING\""
+}
+
+transcode_recording() {
+  . $1
+
+  loginfo "transcoding recording \"$RECORDING\""
+
+  DESTNAME=$(echo $(basename $(dirname $RECORDING)) | sed -e "s/^%\(.*\)/\1/" | sed -e "s/_/ /g")
+
+  if [ -e "$RECORDING/info" ]; then
+    YEAR=$(grep "^K YEAR [1-2][0-9]\{3\}" $RECORDING/info | sed -e "s/^K YEAR \([1-2][0-9]\{3\}\)/\1/")
+    if [ -z "$YEAR" ]; then
+      YEAR=$(grep "^D.*|.*" $RECORDING/info | cut -d '|' -f 4 | grep "[^0-9][1-2][0-9]\{3\}\([^0-9]\|$\)" | sed -e "s/[^0-9]*\([1-2][0-9]\{3\}\).*/\1/")
+      if [ -z "$YEAR" ]; then
+        YEAR=$(grep "^S[^0-9]*[1-2][0-9]\{3\}\([^0-9]\|$\)" $RECORDING/info | sed -e "s/[^0-9]*\([1-2][0-9]\{3\}\).*/\1/")
+      fi
+    fi
+  fi
+
+  if [ -n "$YEAR" ]; then
+    DESTNAME="$DESTNAME ($YEAR)"
+  fi
+
+  avconv -y -i $JOINEDRECORDING -sn -vcodec copy -acodec copy -f matroska "$DESTDIR/$DESTNAME.mkv" >$RECORDING/avconv.log 2>&1
+
+  if [ -n "$DELETEJOINEDFILE" ]; then
+    rm $DELETEJOINEDFILE
+  fi
+
+  rm $1 
+
+  loginfo "finished transcoding recording \"$RECORDING\""
+  loginfo "new file: \"$DESTDIR/$DESTNAME.mkv\""
+
+  svdrpsend mesg "finished transcoding $DESTNAME to MKV"
+}
+
+rm -f $JOINQUEUE/* $TRANSCODEQUEUE/*
+
+inotifywait -mrq -e close_write --format %w%f $JOINQUEUE $TRANSCODEQUEUE | while read FILE
+do
+  if [ "$(dirname $FILE)" == "$JOINQUEUE" ]; then
+    join_recording $FILE &
+  fi
+  if [ "$(dirname $FILE)" == "$TRANSCODEQUEUE" ]; then
+    transcode_recording $FILE &
+  fi
+done

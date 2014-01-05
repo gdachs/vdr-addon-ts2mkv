@@ -1,0 +1,15 @@
+Source: vdr-addon-ts2mkvd
+Section: misc
+Priority: extra
+Maintainer: Gerald Dachs <gda@dachsweb.de>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.2
+Homepage: <insert the upstream URL, if relevant>
+#Vcs-Git: git://git.debian.org/collab-maint/vdr-addon-ts2mkvd.git
+#Vcs-Browser: http://git.debian.org/?p=collab-maint/vdr-addon-ts2mkvd.git;a=summary
+
+Package: vdr-addon-ts2mkvd
+Architecture: all
+Depends: ${misc:Depends}, vdr, libav-tools, inotify-tools
+Description: converts vdr recordings with avconv
+ converts vdr recordings with avconv
