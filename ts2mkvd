@@ -66,11 +66,14 @@ transcode_recording() {
 
   loginfo "transcoding recording \"$RECORDING\""
 
-  DESTNAME=$(echo $(dirname ${RECORDING#$VIDEODIR}) | sed -e "s/^%\(.*\)/\1/" | sed -e "s/_/ /g")
+  #DESTNAME=$(echo $(dirname ${RECORDING#$VIDEODIR}) | sed -e "s/^%\(.*\)/\1/" | sed -e "s/_/ /g")
+  DESTNAME=$(echo $(basename $(dirname $RECORDING)) | sed -e "s/^%\(.*\)/\1/" | sed -e "s/_/ /g")
 
-  SUBDIR=$(dirname $DESTNAME)
+  SUBDIR=$(dirname $(dirname ${RECORDING#$VIDEODIR}))
   if [ "$SUBDIR" != "." ]; then
+    SUBDIR=${SUBDIR//_/ }
     mkdir -p "$DESTDIR/$SUBDIR"
+    DESTNAME="$SUBDIR/$DESTNAME"
   fi
 
   if [ -e "$RECORDING/info" ]; then
