@@ -2,6 +2,7 @@
 
 JOINQUEUE="/var/cache/ts2mkvd/joinqueue"
 TRANSCODEQUEUE="/var/cache/ts2mkvd/transcodequeue"
+VIDEODIR="/srv/vdr/video.00/"
 DESTDIR="/srv/video"
 
 [ -f /etc/default/ts2mkv ] && . /etc/default/ts2mkv
@@ -65,7 +66,12 @@ transcode_recording() {
 
   loginfo "transcoding recording \"$RECORDING\""
 
-  DESTNAME=$(echo $(basename $(dirname $RECORDING)) | sed -e "s/^%\(.*\)/\1/" | sed -e "s/_/ /g")
+  DESTNAME=$(echo $(dirname ${RECORDING#$VIDEODIR}) | sed -e "s/^%\(.*\)/\1/" | sed -e "s/_/ /g")
+
+  SUBDIR=$(dirname $DESTNAME)
+  if [ "$SUBDIR" != "." ]; then
+    mkdir -p "$DESTDIR/$SUBDIR"
+  fi
 
   if [ -e "$RECORDING/info" ]; then
     YEAR=$(grep "^K YEAR [1-2][0-9]\{3\}" $RECORDING/info | sed -e "s/^K YEAR \([1-2][0-9]\{3\}\)/\1/")
