@@ -1,3 +1,9 @@
+vdr-addon-ts2mkvd (0.0.3-1yavdr1~precise) precise; urgency=medium
+
+  * cleaned up avconv call
+
+ -- Gerald Dachs <gda@dachsweb.de>  Wed, 16 Apr 2014 15:26:21 +0200
+
 vdr-addon-ts2mkvd (0.0.2-1yavdr1~precise) precise; urgency=medium
 
   * create subdirs on demand
